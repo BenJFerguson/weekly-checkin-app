@@ -1,0 +1,299 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Weekly Check-In & Tech Evaluation API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: checkins
+    description: Check-in operations
+  - name: export
+    description: Export operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /checkins:
+    get:
+      operationId: getCheckins
+      tags: [checkins]
+      summary: Get all check-ins
+      description: Returns all check-ins with their tool evaluations, newest first
+      responses:
+        "200":
+          description: List of check-ins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CheckinWithEvaluations"
+    post:
+      operationId: createCheckin
+      tags: [checkins]
+      summary: Create a new check-in
+      description: Creates a new check-in with nested tool evaluations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckinBody"
+      responses:
+        "201":
+          description: Created check-in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinWithEvaluations"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /checkins/{id}:
+    delete:
+      operationId: deleteCheckin
+      tags: [checkins]
+      summary: Delete a check-in
+      description: Deletes a check-in and its tool evaluations (cascade)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /checkins/stats:
+    get:
+      operationId: getCheckinStats
+      tags: [checkins]
+      summary: Get check-in statistics
+      description: Returns summary stats - total count, average rating, most used tools, submissions by department
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinStats"
+
+  /export/csv:
+    get:
+      operationId: exportCsv
+      tags: [export]
+      summary: Export all data as CSV
+      description: Downloads a CSV with one row per tool evaluation (or per checkin if no tools)
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    TechEvaluation:
+      type: object
+      properties:
+        id:
+          type: integer
+        checkinId:
+          type: integer
+        toolName:
+          type: string
+        description:
+          type: string
+        link:
+          type: string
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+      required:
+        - id
+        - checkinId
+        - toolName
+        - description
+        - rating
+
+    CheckinWithEvaluations:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        department:
+          type: string
+        accomplishments:
+          type: string
+        goals:
+          type: string
+        challenges:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        techEvaluations:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechEvaluation"
+      required:
+        - id
+        - name
+        - department
+        - accomplishments
+        - goals
+        - createdAt
+        - techEvaluations
+
+    CreateTechEvaluationBody:
+      type: object
+      properties:
+        toolName:
+          type: string
+        description:
+          type: string
+        link:
+          type: string
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+      required:
+        - toolName
+        - description
+        - rating
+
+    CreateCheckinBody:
+      type: object
+      properties:
+        name:
+          type: string
+        department:
+          type: string
+        accomplishments:
+          type: string
+        goals:
+          type: string
+        challenges:
+          type: string
+          nullable: true
+        techEvaluations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateTechEvaluationBody"
+      required:
+        - name
+        - department
+        - accomplishments
+        - goals
+        - techEvaluations
+
+    CheckinStats:
+      type: object
+      properties:
+        totalCheckins:
+          type: integer
+        totalToolsEvaluated:
+          type: integer
+        averageRating:
+          type: number
+        topTools:
+          type: array
+          items:
+            type: object
+            properties:
+              toolName:
+                type: string
+              count:
+                type: integer
+              avgRating:
+                type: number
+            required:
+              - toolName
+              - count
+              - avgRating
+        departmentBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              department:
+                type: string
+              count:
+                type: integer
+            required:
+              - department
+              - count
+      required:
+        - totalCheckins
+        - totalToolsEvaluated
+        - averageRating
+        - topTools
+        - departmentBreakdown
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+          nullable: true
+      required:
+        - error
